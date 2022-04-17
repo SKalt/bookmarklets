@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="favicon.svg">
+  <title>Bookmarklets</title>
+</head>
+<body>
+  <main>
+    <h1>Bookmarklets</h1>
+    <ul>
+      <li>
+        <a href="javascript:(()=>{document.title=prompt('retitle tab to:',document.querySelector('h1')?.textContent||document.title)??document.title})()">
+          Retitle tab
+        </a>
+        
+      </li>
+      <li>
+        <a href="javascript:(()=>{let o=document.title,n=new Blob([`[Desktop Entry]\nComment=${o}\nTerminal=false\nName=${o}\nExec=xdg-open ${location.host}\nType=Application\nIcon=applications-internet\nNoDisplay=false`],{type:'text/plain'}),[e,t]=['a','div'].map(l=>document.createElement(l));e.download=`${o.replace(/[^\w]/g,'_')}.desktop`;e.href=URL.createObjectURL(n);e.textContent=`download ${e.download}`;t.style='position: absolute; top: 0; border: 1px solid black;';t.appendChild(e);t.onclick=()=>document.body.removeChild(t);document.body.appendChild(t);})();">
+          Create ubuntu desktop icon for site
+        </a>
+      </li>
+    </ul>
+  </main>
+</body>
