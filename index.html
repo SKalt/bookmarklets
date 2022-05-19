@@ -19,6 +19,11 @@
           Create ubuntu desktop icon for site
         </a>
       </li>
+      <li>
+        <a href="javascript:(()=>{let id=getSelection()?.anchorNode.parentElement.closest("[id]")?.id; if (!id) return; location.hash="#"+id})()">
+          Navigate to nearest id'd element relative to selected text
+        </a>
+      </li>
     </ul>
   </main>
 </body>
