@@ -1,0 +1,10 @@
+baseurl = 'https://skalt.github.io/bookmarklets/'
+title = 'Bookmarklets'
+enableGitInfo = true
+copyright = 'CC BY-NC-SA 4.0'
+languageCode = 'en-us'
+[outputs]
+  home = ['html'] # TODO: RSS?
+[params]
+  AuthorName = 'Steven Kalt'
+  GitHubUser = 'skalt'

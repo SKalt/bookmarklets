@@ -1,0 +1,31 @@
+{{ define "main" }}
+  <main>
+    <h1>Bookmarklets</h1>
+    <ul>
+      <li>
+        {{-
+            partial "bookmarklet.html" (dict
+              "path" "bookmarklets/retitle_tab.ts"
+              "description" "Retitle tab"
+            )
+        -}}
+      </li>
+      <li>
+        {{-
+          partial "bookmarklet.html" (dict
+            "path" "bookmarklets/create_ubuntu_desktop_icon.ts"
+            "description" "Create a Ubuntu desktop icon for a site"
+          )
+      -}}
+      </li>
+      <li>
+        {{-
+            partial "bookmarklet.html" (dict
+              "path" "bookmarklets/nearest_id.ts"
+              "description" "Navigate to nearest id'd element relative to selected text"
+            )
+        -}}
+      </li>
+    </ul>
+  </main>
+{{ end }}

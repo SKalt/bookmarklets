@@ -1,0 +1,7 @@
+{{ $built := (resources.Get .path)
+    | js.Build (dict
+        "minify" true
+        "format" "iife"
+      )
+-}}
+<a href="javascript:{{ $built.Content }}">{{.description}}</a>

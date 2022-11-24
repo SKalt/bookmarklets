@@ -1,0 +1,32 @@
+{{- $style := resources.Get "critical.css"
+  | resources.Minify
+  | resources.Fingerprint
+-}}
+{{- $favicon := resources.Get "favicon.svg"
+  | resources.Minify
+  | resources.Fingerprint 
+-}}
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8" />
+  <title>{{ block "title" . }}{{ .Site.Title }}{{ end }}</title>
+  <link rel="icon" href="{{ $favicon.Permalink }}" />
+  {{- with .OutputFormats.Get "rss" -}}
+    {{- printf
+      `<link rel="%s" type="%s" href="%s" title="%s" />`
+      .Rel .MediaType.Type .Permalink $.Site.Title | safeHTML
+    -}}
+  {{ end -}}
+  <link rel="stylesheet" href="{{ $style.Permalink }}" />
+</head>
+<body>
+  {{- block "main" . -}}
+    <!-- content goes here -->
+  {{- end -}}
+  {{ block "footer" . }}
+    <footer>
+      <span>© 2022-2022 {{ $.Site.Copyright }}</span>
+      <!-- TODO: add last-modified -->
+    </footer>
+  {{ end }}
+</body>
