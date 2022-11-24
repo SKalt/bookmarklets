@@ -25,8 +25,7 @@
   {{- end -}}
   {{ block "footer" . }}
     <footer>
-      <span>© 2022-2022 {{ $.Site.Copyright }}</span>
-      <!-- TODO: add last-modified -->
+      <span>© 2022-{{now.Format "2006"}} {{ $.Site.Copyright }}</span>
     </footer>
   {{ end }}
 </body>
