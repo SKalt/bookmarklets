@@ -1,0 +1,12 @@
+{
+ "compilerOptions": {
+  "baseUrl": ".",
+  "lib": ["DOM", "ES2022", "DOM.Iterable"],
+  "target": "ES2022",
+  "paths": {
+   "*": [
+    "*"
+   ]
+  }
+ }
+}

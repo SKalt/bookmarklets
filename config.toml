@@ -3,8 +3,13 @@ title = 'Bookmarklets'
 enableGitInfo = true
 copyright = 'CC BY-NC-SA 4.0'
 languageCode = 'en-us'
+
 [outputs]
-  home = ['html'] # TODO: RSS?
+home = ['html'] # TODO: RSS?
+
 [params]
-  AuthorName = 'Steven Kalt'
-  GitHubUser = 'skalt'
+AuthorName = 'Steven Kalt'
+GitHubUser = 'skalt'
+
+[build]
+noJSConfigInAssets = true
