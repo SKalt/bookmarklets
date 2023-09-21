@@ -22,18 +22,20 @@ export type Callbacks<Result> = HtmlCallbacks<Result> & NodeCallbacks<Result>;
 export const walkNodes = <Result>(
   element: HTMLElement,
   callbacks: Callbacks<Result>,
-  logger?: Logger
+  logger?: Logger | null
 ): Result[] => {
-  const log = logger?.child("walkNodes") ?? new Logger("<hidden>::walkNodes");
+  const log: Logger | null = globalThis.DEBUG
+    ? logger?.child("walkNodes")
+    : null;
   return [...element.childNodes].map((node) => {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const element = node as HTMLElement;
-      log.debug("element", element);
+      log?.debug("element", element);
       const callback =
         callbacks[element.tagName.toLowerCase()] || callbacks.htmlFallback;
-      log.debug("callback", callback);
+      log?.debug("callback", callback);
       const result = callback(element, callbacks);
-      log.debug("result", result);
+      log?.debug("result", result);
       return result;
     } else {
       const callback = callbacks[node.nodeType] || callbacks.nodeFallback;
@@ -48,3 +50,50 @@ export const stringToHtmlElement = (html: string): HTMLDivElement => {
   return div;
 };
 export const textOf = (node: Node): string => node.textContent?.trim() || "";
+
+/**
+ * Select the clicked HTML element
+ * @returns The clicked HTML element
+ */
+export const selectElement = async (
+  logger: Logger
+): Promise<HTMLElement | null> =>
+  new Promise((resolve, reject) => {
+    const log = logger.child("selectElement");
+    const handle = (event: MouseEvent) => {
+      event.stopPropagation();
+      event.preventDefault();
+      return event.target as HTMLElement;
+    };
+    const cancelSearch = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        cleanUp();
+        log.err("Search cancelled");
+        reject(new Error("Search cancelled"));
+      }
+    };
+    const onMouseOver = (event: MouseEvent) => {
+      const element = handle(event);
+      const prevBorder = element.style.border;
+      element.style.border = "2px solid red";
+      const onMouseOut = () => {
+        element.style.border = prevBorder;
+        element.removeEventListener("mouseout", onMouseOut);
+      };
+      element.addEventListener("mouseout", onMouseOut);
+    };
+    const onClick = (event: MouseEvent) => {
+      const element = handle(event);
+      cleanUp();
+      resolve(element);
+    };
+    const cleanUp = () => {
+      log.log("Cleaning up");
+      window.removeEventListener("click", onClick);
+      window.removeEventListener("keydown", cancelSearch);
+      document.removeEventListener("mouseover", onMouseOver);
+    };
+    document.addEventListener("mouseover", onMouseOver);
+    window.addEventListener("click", onClick);
+    window.addEventListener("keydown", cancelSearch);
+  });

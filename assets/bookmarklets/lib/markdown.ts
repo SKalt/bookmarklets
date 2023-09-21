@@ -19,7 +19,10 @@ const bold = <T>(el: HTMLElement, cb: Callbacks<T>): string =>
 const italic = <T>(el: HTMLElement, cb: Callbacks<T>): string =>
   `_${walkNodes(el, cb)}_`;
 const p = (el: HTMLElement, cb: Callbacks<string>): string =>
-  "\n\n" + walkNodes(el, cb).join("");
+  "\n\n" +
+  walkNodes(el, cb)
+    .join("")
+    .replaceAll(/^\s*[·|•|•|‣|◦|◦]\s*/g, "  - ");
 export const defaultCallbacks = (): Callbacks<string> => ({
   a: (a, cb) => `[${walkNodes(a, cb).join("")}](${a.href})`,
   h1: (h1, cb) => h(1, h1, cb),
@@ -55,7 +58,7 @@ export const toMd = (
   callbacks: Callbacks<string> | null = null,
   logger: Logger | null = null
 ): string => {
-  if (!callbacks) callbacks = defaultCallbacks();
+  callbacks = { ...defaultCallbacks(), ...callbacks };
   const templateEl = stringToHtmlElement(html);
   if (logger) logger.child("to_md").log("templateEl", templateEl);
   return walkNodes(templateEl, callbacks)

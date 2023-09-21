@@ -1,5 +1,16 @@
 export const copyToClipboard = async (str: string): Promise<void> => {
-  await window.navigator.clipboard.writeText(str);
+  try {
+    await window.navigator.clipboard.writeText(str);
+  } catch (e) {
+    console.error("Clipboard API not available", e);
+    return new Promise((resolve) => {
+      let i = document.createElement("textarea");
+      i.value = str;
+      i.select();
+      document.execCommand("copy"); // deprecated but still portable
+      resolve();
+    });
+  }
 };
 
 export class Logger {

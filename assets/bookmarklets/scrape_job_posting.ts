@@ -1,3 +1,4 @@
+import { selectElement } from "./lib/html";
 import { copyToClipboard, Logger } from "./lib/lib";
 import { toMd } from "./lib/markdown";
 const logger = new Logger("scrape_job_posting");
@@ -16,6 +17,7 @@ type MonetaryAmount = {
   maxValue?: number;
   value?: string | number;
 };
+
 type JobPosting = {
   // see https://schema.org/JobPosting
   "@type": "JobPosting";
@@ -32,82 +34,85 @@ type JobPosting = {
   title: string;
   validThrough?: string;
 };
-// TODO: html2md(description)
-
-(async () => {
-  const elements = [
-    ...document.querySelectorAll('script[type="application/ld+json"]'),
-  ] as HTMLScriptElement[];
-  if (!elements.length) {
-    logger.err("No json-ld scripts found");
-    return;
+const renderMonetaryAmount = (amount: MonetaryAmount): string => {
+  const render = (value: string | number): string => {
+    if (amount.currency) return `${amount.currency} ${value}`;
+    return typeof value === "number" ? `${value}` : value;
+  };
+  let result = "";
+  if (amount.minValue)
+    result += `min_value: ${render(amount.minValue ?? amount.value ?? 0)}\n`;
+  if (amount.maxValue)
+    result += `max_value: ${render(amount.maxValue ?? amount.value ?? 0)}\n`;
+  return result;
+};
+const renderSalary = (salary: JobPosting["baseSalary"]): string => {
+  let min: string, max: string;
+  switch (typeof salary) {
+    case "string":
+      min = max = salary;
+      break;
+    case "number":
+    case "bigint":
+      min = max = `$${salary}`;
+      break;
+    case "object":
+      return renderMonetaryAmount(salary);
+    default:
+      logger.err("Unknown salary type", salary);
   }
-  const jobPostings = elements
-    .map(parseJson)
-    .map((json, i) => {
-      if (!json) return null;
-      if (json["@type"] === "JobPosting") {
-        logger.log("Found job posting", elements[i], json);
-        return json as JobPosting;
+
+  return `min_value: ${min}\nmax_value: ${max}\n`;
+};
+const getLdJson = (logger: Logger): Array<string | null> => {
+  return [...document.querySelectorAll("script[type='application/ld+json']")]
+    .map((el: HTMLScriptElement) => parseJson(el))
+    .map((result): JobPosting | null => {
+      if (!result) return null;
+      if (result["@type"] === "JobPosting") {
+        logger.log("Found job posting", result);
+        return result as JobPosting;
       } else {
-        logger.err("Not a job posting", elements[i], json);
+        logger.err("Not a job posting", result);
         return null;
       }
     })
-    .filter(Boolean) as JobPosting[];
-  let [first] = jobPostings;
-  if (first) {
-    let {
-      baseSalary,
-      datePosted,
-      description,
-      title,
-      estimatedSalary,
-      validThrough,
-    } = first;
-    const url = window.location.href;
-    let frontMatter = `---\ntitle: ${title}\nlink: ${url}\n`;
-    let minSalary =
-      typeof baseSalary === "object"
-        ? baseSalary.minValue ?? baseSalary.value ?? null
-        : baseSalary
-        ? baseSalary
-        : typeof estimatedSalary === "object"
-        ? estimatedSalary.minValue ?? null
-        : estimatedSalary ?? null;
-    if (minSalary) frontMatter += `min_salary: ${minSalary}\n`;
+    .map((posting: JobPosting | null): string | null => {
+      if (!posting) return null;
+      let {
+        baseSalary,
+        datePosted,
+        description,
+        title,
+        estimatedSalary,
+        validThrough,
+      } = posting;
+      const url = window.location.href;
+      let frontMatter = `---\ntitle: ${title}\nlink: ${url}\n`;
+      if (baseSalary ?? estimatedSalary)
+        frontMatter += renderSalary(baseSalary ?? estimatedSalary);
+      if (datePosted) {
+        datePosted = new Date(datePosted).toISOString().slice(0, 10);
+        frontMatter += `date_posted: ${datePosted}`;
+      } else {
+        frontMatter += `date_posted: null`;
+      }
+      return frontMatter + "\n---\n\n" + toMd(description || "");
+    });
+};
 
-    let maxSalary =
-      typeof baseSalary === "object"
-        ? baseSalary.maxValue ?? baseSalary.value ?? null
-        : baseSalary
-        ? baseSalary
-        : typeof estimatedSalary === "object"
-        ? estimatedSalary.maxValue ?? null
-        : estimatedSalary ?? null;
-    if (maxSalary) frontMatter += `max_salary: ${maxSalary}\n`;
-    if (datePosted) {
-      datePosted = new Date(datePosted).toISOString().slice(0, 10);
-      frontMatter += `datePosted: ${datePosted}\n`;
-    } else {
-      frontMatter += `datePosted: null\n`;
-    }
-    if (validThrough) {
-      validThrough = new Date(validThrough).toISOString().slice(0, 10);
-      frontMatter += `validThrough: ${validThrough}\n`;
-    }
-    frontMatter += `---\n\n`;
-    logger.log("frontMatter", frontMatter);
-    const md = frontMatter + toMd(description || "");
-    console.log(md);
-    try {
-      await copyToClipboard(md);
-      alert("markdown copied to clipboard");
-    } catch (e) {
-      logger.child("clipboard").err("can't write to clipboard", e);
-    }
-    prompt("date posted:", datePosted || "No date");
-  } else {
-    logger.err("No job postings found");
+(async () => {
+  let ldJson = getLdJson(logger);
+  if (!ldJson.length) logger.err("No json-ld scripts found");
+  ldJson = ldJson.filter(Boolean) as string[];
+  let [result] = ldJson;
+  if (!result) {
+    logger.err("no valid job postings found");
+    let el = await selectElement(logger); // errors if selection aborted
+    result = `---\nlink: ${location.href}\n---\n\n` + toMd(el?.outerHTML);
   }
+
+  console.log(result);
+  await copyToClipboard(result);
+  alert("markdown copied to clipboard");
 })();
