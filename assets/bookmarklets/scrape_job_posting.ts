@@ -18,6 +18,14 @@ type MonetaryAmount = {
   value?: string | number;
 };
 
+type Organization = {
+  "@type": "Organization";
+  "@context"?: "https://schema.org";
+  name?: string;
+  url?: string;
+  logo?: string;
+};
+
 type JobPosting = {
   // see https://schema.org/JobPosting
   "@type": "JobPosting";
@@ -27,6 +35,7 @@ type JobPosting = {
   directApply?: boolean;
   description?: string;
   employmentType?: string;
+  hiringOrganization?: Organization;
   estimatedSalary?: string | number | MonetaryAmount;
   experienceInPlaceOfEducation?: boolean;
   jobLocationType?: string;
@@ -85,10 +94,14 @@ const getLdJson = (logger: Logger): Array<string | null> => {
         description,
         title,
         estimatedSalary,
+        hiringOrganization,
         validThrough,
       } = posting;
       const url = window.location.href;
-      let frontMatter = `---\ntitle: ${title}\nlink: ${url}\n`;
+      let frontMatter = `---\n`;
+      if (hiringOrganization?.name)
+        frontMatter += `company: ${hiringOrganization.name.trim()}\n`;
+      frontMatter += `title: ${title}\nlink: ${url}\n`;
       if (baseSalary ?? estimatedSalary)
         frontMatter += renderSalary(baseSalary ?? estimatedSalary);
       if (datePosted) {
