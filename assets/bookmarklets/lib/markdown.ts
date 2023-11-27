@@ -1,11 +1,4 @@
-import {
-  Callbacks,
-  HtmlCallbacks,
-  NodeCallbacks,
-  stringToHtmlElement,
-  textOf,
-  walkNodes,
-} from "./html";
+import { Callbacks, stringToHtmlElement, textOf, walkNodes } from "./html";
 import { Logger } from "./lib";
 
 const h = (
@@ -23,6 +16,13 @@ const p = (el: HTMLElement, cb: Callbacks<string>): string =>
   walkNodes(el, cb)
     .join("")
     .replaceAll(/^\s*[·|•|•|‣|◦|◦]\s*/g, "  - ");
+const nonEmptyText = (node: Node): string => {
+  const text = textOf(node);
+  return text.trim() ? text : "";
+};
+
+// FIXME: handle indentation of nested lists
+
 export const defaultCallbacks = (): Callbacks<string> => ({
   a: (a, cb) => `[${walkNodes(a, cb).join("")}](${a.href})`,
   h1: (h1, cb) => h(1, h1, cb),
@@ -35,9 +35,28 @@ export const defaultCallbacks = (): Callbacks<string> => ({
   code: (code) => "`" + textOf(code) + "`",
   blockquote: (blockquote, cb) =>
     "\n> " + walkNodes(blockquote, cb).join("").split("\n").join("\n> "),
-  li: (li, cb) => walkNodes(li, cb).join("\n"),
-  ol: (ol, cb) => `\n  1. ${walkNodes(ol, cb).join("\n  1. ")}\n`,
-  ul: (ul, cb) => `\n  - ${walkNodes(ul, cb).join("\n  - ")}\n`,
+  li: (li, cb) =>
+    walkNodes(li, cb)
+      .filter((s) => s.trim())
+      .join("\n"),
+  ol: (ol, cb) =>
+    `\n  1. ${walkNodes(ol, {
+      ...cb,
+      [Node.TEXT_NODE]: nonEmptyText,
+    })
+      .filter(Boolean)
+      .map((l) => `  1. ${l}`)
+      .join("\n")}\n`,
+  ul: (ul, cb) =>
+    "\n" +
+    walkNodes(ul, {
+      ...cb,
+      [Node.TEXT_NODE]: nonEmptyText,
+    })
+      .filter(Boolean)
+      .map((l) => `  - ${l}`)
+      .join("\n") +
+    "\n",
   br: () => "\n\n",
   hr: () => `\n\n${"-".repeat(80)}\n\n`,
   img: (img) => `\n![${img.alt}](${img.src})\n`,
@@ -53,6 +72,7 @@ export const defaultCallbacks = (): Callbacks<string> => ({
   [Node.TEXT_NODE]: (node) => textOf(node),
   nodeFallback: ignore,
 });
+
 export const toMd = (
   html: string,
   callbacks: Callbacks<string> | null = null,

@@ -105,6 +105,7 @@ const getLdJson = (logger: Logger): Array<string | null> => {
   let ldJson = getLdJson(logger);
   if (!ldJson.length) logger.err("No json-ld scripts found");
   ldJson = ldJson.filter(Boolean) as string[];
+  if (!ldJson.length) logger.err("No populated job postings found");
   let [result] = ldJson;
   if (!result) {
     logger.err("no valid job postings found");
@@ -114,5 +115,6 @@ const getLdJson = (logger: Logger): Array<string | null> => {
 
   console.log(result);
   await copyToClipboard(result);
-  alert("markdown copied to clipboard");
+  let datePosted = (/^date_posted: (.*)$/m.exec(result) ?? [null, null])[1];
+  prompt("markdown copied to clipboard. Job posted:", datePosted);
 })();
