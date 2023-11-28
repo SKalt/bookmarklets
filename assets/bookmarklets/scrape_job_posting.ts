@@ -43,36 +43,72 @@ type JobPosting = {
   title: string;
   validThrough?: string;
 };
-const renderMonetaryAmount = (amount: MonetaryAmount): string => {
-  const render = (value: string | number): string => {
-    if (amount.currency) return `${amount.currency} ${value}`;
-    return typeof value === "number" ? `${value}` : value;
-  };
-  let result = "";
-  if (amount.minValue)
-    result += `min_value: ${render(amount.minValue ?? amount.value ?? 0)}\n`;
-  if (amount.maxValue)
-    result += `max_value: ${render(amount.maxValue ?? amount.value ?? 0)}\n`;
-  return result;
-};
-const renderSalary = (salary: JobPosting["baseSalary"]): string => {
-  let min: string, max: string;
-  switch (typeof salary) {
+
+const toNumber = (value: number | string): number => {
+  switch (typeof value) {
     case "string":
-      min = max = salary;
-      break;
+      return parseFloat(value.replaceAll(/[^0-9]/g, ""));
     case "number":
     case "bigint":
-      min = max = `$${salary}`;
-      break;
+      return value;
+    default:
+      logger.err("Unable to coerce to number", value);
+  }
+  return 0; // TODO: sane default?
+};
+
+const renderSalary = (
+  salary: JobPosting["baseSalary"]
+): { min_value: number; max_value: number } | null => {
+  if (!salary) return null;
+  const result = { min_value: 0, max_value: 0 };
+  switch (typeof salary) {
+    case "string":
+      result.min_value = toNumber(salary);
+      result.max_value = result.min_value;
+      return result;
+    case "number":
+    case "bigint":
+      result.min_value = salary;
+      result.max_value = result.min_value;
+      return result;
     case "object":
-      return renderMonetaryAmount(salary);
+      // cast as MonetaryAmount
+      let _: MonetaryAmount = salary;
+      if (_.minValue) {
+        result.min_value = _.minValue;
+        if (_.maxValue) result.max_value = _.maxValue;
+      } else if (_.value)
+        result.max_value = result.min_value = toNumber(_.value);
+      return result;
     default:
       logger.err("Unknown salary type", salary);
+      return null;
   }
-
-  return `min_value: ${min}\nmax_value: ${max}\n`;
 };
+type FrontMatter = {
+  company: string;
+  title: string;
+  link: string;
+  date_posted: string | null;
+  min_value?: number | null;
+  max_value?: number | null;
+};
+
+const renderFrontMatter = (frontMatter: FrontMatter): string => {
+  let result = "---\n";
+
+  for (let key of ["company", "title", "link", "date_posted"]) {
+    const value = frontMatter[key];
+    result += `${key}: ${value}\n`;
+  }
+  if (frontMatter.min_value) {
+    result += `min_value: $${frontMatter.min_value}\n`;
+    result += `max_value: $${frontMatter.max_value}\n`;
+  }
+  return result + "---\n\n";
+};
+
 const getLdJson = (logger: Logger): Array<string | null> => {
   return [...document.querySelectorAll("script[type='application/ld+json']")]
     .map((el: HTMLScriptElement) => parseJson(el))
@@ -98,19 +134,29 @@ const getLdJson = (logger: Logger): Array<string | null> => {
         validThrough,
       } = posting;
       const url = window.location.href;
-      let frontMatter = `---\n`;
-      if (hiringOrganization?.name)
-        frontMatter += `company: ${hiringOrganization.name.trim()}\n`;
-      frontMatter += `title: ${title}\nlink: ${url}\n`;
-      if (baseSalary ?? estimatedSalary)
-        frontMatter += renderSalary(baseSalary ?? estimatedSalary);
-      if (datePosted) {
-        datePosted = new Date(datePosted).toISOString().slice(0, 10);
-        frontMatter += `date_posted: ${datePosted}`;
-      } else {
-        frontMatter += `date_posted: null`;
+      const frontMatter: FrontMatter = {
+        company: hiringOrganization?.name?.trim() ?? "",
+        title: title.trim(),
+        date_posted: datePosted ?? null,
+        link: url,
+        ...(renderSalary(baseSalary ?? estimatedSalary) ?? {}),
+      };
+      const md = toMd(description || "");
+      if (!frontMatter.min_value && !frontMatter.max_value) {
+        let salary =
+          /(\$?[0-9]{2,3},?\d{3}\.?\d{0,2})\s*[-]\s*(\$?[0-9]{3},?[0-9]{3}\.?\d{0,2})/g.exec(
+            md
+          );
+        if (salary) {
+          console.log(salary);
+          baseSalary = {
+            minValue: toNumber(salary[1]),
+            maxValue: toNumber(salary[2]),
+          };
+        }
       }
-      return frontMatter + "\n---\n\n" + toMd(description || "");
+
+      return renderFrontMatter(frontMatter) + "\n" + md;
     });
 };
 
