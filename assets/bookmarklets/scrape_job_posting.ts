@@ -1,6 +1,6 @@
 import { selectElement } from "./lib/html";
 import { copyToClipboard, Logger } from "./lib/lib";
-import { toMd } from "./lib/markdown";
+import { defaultCallbacks, toMd } from "./lib/markdown";
 const logger = new Logger("scrape_job_posting");
 const parseJson = (el: HTMLScriptElement) => {
   try {
@@ -115,7 +115,7 @@ const getLdJson = (logger: Logger): Array<string | null> => {
     .map((result): JobPosting | null => {
       if (!result) return null;
       if (result["@type"] === "JobPosting") {
-        logger.log("Found job posting", result);
+        logger.info("Found job posting", result);
         return result as JobPosting;
       } else {
         logger.err("Not a job posting", result);
@@ -141,7 +141,7 @@ const getLdJson = (logger: Logger): Array<string | null> => {
         link: url,
         ...(renderSalary(baseSalary ?? estimatedSalary) ?? {}),
       };
-      const md = toMd(description || "");
+      const md = toMd(description || "", defaultCallbacks, logger);
       if (!frontMatter.min_value && !frontMatter.max_value) {
         let salary =
           /(\$?[0-9]{2,3},?\d{3}\.?\d{0,2})\s*[-]\s*(\$?[0-9]{3},?[0-9]{3}\.?\d{0,2})/g.exec(

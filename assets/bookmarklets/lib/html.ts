@@ -9,18 +9,40 @@ export type NodeCallbacks<Result> = Partial<{
   [Node.TEXT_NODE]: (node: Node) => Result;
 }> & { nodeFallback: (node: Node) => Result };
 
+export type State = {
+  /** for all block elements */
+  indent: string;
+  /** for `li`s only */
+  prefix: string;
+};
+export type Callback<El extends HTMLElement = HTMLElement, Result = string> = (
+  el: El,
+  state: State,
+  cb: Callbacks<Result>
+) => Result;
+
 export type HtmlCallbacks<Result> = {
   [K in keyof HTMLElementTagNameMap]?: (
     el: HTMLElementTagNameMap[K],
+    state: State,
     callbacks: Callbacks<Result>
   ) => Result;
 } & {
-  htmlFallback: (el: HTMLElement, callbacks: Callbacks<Result>) => Result;
+  htmlFallback: Callback<HTMLElement, Result>;
 };
-export type Callbacks<Result> = HtmlCallbacks<Result> & NodeCallbacks<Result>;
 
+export type Callbacks<Result> = HtmlCallbacks<Result> & NodeCallbacks<Result>;
+export const newline = (state: State) => "\n" + state.indent;
+/**
+ *
+ * @param element root of the DOM tree to walk
+ * @param callbacks how to handle each HTML node type
+ * @param logger an optional logger
+ * @returns One result per **child** node. Note the root node is not included in the result!
+ */
 export const walkNodes = <Result>(
   element: HTMLElement,
+  state: State = { indent: "", prefix: "- " },
   callbacks: Callbacks<Result>,
   logger?: Logger | null
 ): Result[] => {
@@ -31,10 +53,9 @@ export const walkNodes = <Result>(
     if (node.nodeType === Node.ELEMENT_NODE) {
       const element = node as HTMLElement;
       log?.debug("element", element);
-      const callback =
+      const callback: Callback<HTMLElement, Result> =
         callbacks[element.tagName.toLowerCase()] || callbacks.htmlFallback;
-      log?.debug("callback", callback);
-      const result = callback(element, callbacks);
+      const result = callback(element, state, callbacks);
       log?.debug("result", result);
       return result;
     } else {
@@ -49,7 +70,8 @@ export const stringToHtmlElement = (html: string): HTMLDivElement => {
   const div = tpl.content.querySelector("div");
   return div;
 };
-export const textOf = (node: Node): string => node.textContent?.trim() || "";
+export const textOf = (node: Node): string =>
+  node.textContent?.trim().replaceAll(/\r?\n/g, "\n") || "";
 
 /**
  * Select the clicked HTML element
@@ -88,7 +110,7 @@ export const selectElement = async (
       resolve(element);
     };
     const cleanUp = () => {
-      log.log("Cleaning up");
+      log.info("Cleaning up");
       window.removeEventListener("click", onClick);
       window.removeEventListener("keydown", cancelSearch);
       document.removeEventListener("mouseover", onMouseOver);

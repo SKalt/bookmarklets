@@ -1,21 +1,39 @@
-import { Callbacks, stringToHtmlElement, textOf, walkNodes } from "./html";
+import {
+  Callback,
+  Callbacks,
+  HtmlCallbacks,
+  State,
+  stringToHtmlElement,
+  textOf,
+  walkNodes,
+  newline,
+} from "./html";
 import { Logger } from "./lib";
 
-const h = (
-  level: number,
-  element: HTMLElement,
-  cb: Callbacks<string>
-): string => "\n\n" + "#".repeat(level) + " " + walkNodes(element, cb).join("");
+const h =
+  (level: number): Callback<HTMLElement, string> =>
+  (el, state, cbs) =>
+    newline(state) +
+    newline(state) +
+    "#".repeat(level) +
+    " " +
+    walkNodes(el, state, cbs).join("");
 const ignore = () => "";
-const bold = <T>(el: HTMLElement, cb: Callbacks<T>): string =>
-  `**${walkNodes(el, cb)}**`;
-const italic = <T>(el: HTMLElement, cb: Callbacks<T>): string =>
-  `_${walkNodes(el, cb)}_`;
-const p = (el: HTMLElement, cb: Callbacks<string>): string =>
-  "\n\n" +
-  walkNodes(el, cb)
+
+const bold: Callback<HTMLElement, string> = (el, state, cbs): string =>
+  `**${walkNodes(el, state, cbs)}**`;
+const italic: Callback<HTMLElement, string> = (el, state, cbs): string =>
+  `_${walkNodes(el, state, cbs)}_`;
+
+const blockElement: Callback<HTMLElement, string> = (el, state, cbs): string =>
+  newline(state) +
+  newline(state) + // TODO: differentiate single/double newlines?
+  walkNodes(el, state, cbs)
     .join("")
-    .replaceAll(/^\s*[·|•|•|‣|◦|◦]\s*/g, "  - ");
+    .replaceAll(/^\s*[·|•|•|‣|◦|◦]\s*/g, "- ");
+
+const pre = (pre: HTMLPreElement): string => "\n```" + textOf(pre) + "```\n";
+
 const nonEmptyText = (node: Node): string => {
   const text = textOf(node);
   return text.trim() ? text : "";
@@ -23,65 +41,138 @@ const nonEmptyText = (node: Node): string => {
 
 // FIXME: handle indentation of nested lists
 
-export const defaultCallbacks = (): Callbacks<string> => ({
-  a: (a, cb) => `[${walkNodes(a, cb).join("")}](${a.href})`,
-  h1: (h1, cb) => h(1, h1, cb),
-  h2: (h2, cb) => h(2, h2, cb),
-  h3: (h3, cb) => h(3, h3, cb),
-  h4: (h4, cb) => h(4, h4, cb),
-  h5: (h5, cb) => h(5, h5, cb),
-  h6: (h6, cb) => h(6, h6, cb),
-  pre: (pre) => "\n```" + textOf(pre) + "```\n",
+const fallback: Callback<HTMLElement, string> = (el, state, cbs) =>
+  walkNodes(el, state, cbs).join("");
+const preserve: Callback<HTMLElement, string> = (el, state, cbs) =>
+  el.outerHTML; // TODO: handle indentation?;
+// const _blockElements = ["DL", "DD", "DT", "FIELDSET"];
+
+const list =
+  (prefix: string): Callback<HTMLUListElement | HTMLOListElement, string> =>
+  (list, state, cbs) => {
+    return (
+      newline(state) +
+      walkNodes(list, { indent: state.indent + "  ", prefix }, cbs)
+        .filter((childText) => Boolean(childText.trim()))
+        .join("") +
+      newline(state)
+    );
+  };
+
+const blockElements = {
+  pre,
+  p: blockElement,
+  div: blockElement,
+  header: blockElement,
+  footer: blockElement,
+  hgroup: blockElement,
+  article: blockElement,
+  main: blockElement,
+  section: blockElement,
+  address: blockElement, // TODO: omit from job descriptions?
+
+  // web-application-specific block elements that don't have a meaningful analog
+  // in markdown
+  form: ignore,
+  fieldset: ignore,
+  output: ignore,
+  menu: ignore,
+  nav: ignore,
+  noscript: ignore,
+  canvas: ignore,
+  iframe: (el: HTMLIFrameElement) => {
+    console.warn("iframe detected:", el);
+    return ignore();
+  },
+  html: fallback,
+  body: fallback,
+
+  h1: h(1),
+  h2: h(2),
+  h3: h(3),
+  h4: h(4),
+  h5: h(5),
+  h6: h(6),
+
+  hr: (_: HTMLHRElement, state: State, cbs: Callbacks<string>) =>
+    newline(state) +
+    newline(state) +
+    "-".repeat(80) +
+    newline(state) +
+    newline(state),
+
+  aside: preserve,
+  figure: preserve, // also covers figcaption
+  audio: preserve, // I never expect to see this one
+  table: preserve, // TODO: handle tables
+  video: preserve,
+
+  blockquote: (
+    el: HTMLQuoteElement,
+    state: State,
+    cbs: Callbacks<string>
+  ): string => {
+    return (
+      newline(state) +
+      newline(state) +
+      walkNodes(el, { ...state, indent: state.indent + "> " }, cbs).join("") +
+      newline(state)
+    );
+  },
+
+  /** should be overridden by indentBlocks  */
+  li: (li: HTMLLIElement, state: State, cbs: Callbacks<string>) => {
+    const innerState = { ...state, indent: state.indent + "  " };
+    let inner = fallback(li, innerState, cbs);
+    {
+      // remove all leading indented lines
+      const innerLine = newline(innerState);
+      while (inner.startsWith(innerLine)) inner = inner.slice(innerLine.length);
+    }
+    return newline(state) + state.prefix + inner;
+  },
+
+  ol: list("1. "),
+  ul: list("- "),
+};
+
+export const defaultCallbacks: Callbacks<string> = {
+  ...(blockElements as Partial<Callbacks<string>>),
+  a: (a, state) =>
+    `[${walkNodes(a, state, defaultCallbacks).join("")}](${a.href})`,
   code: (code) => "`" + textOf(code) + "`",
-  blockquote: (blockquote, cb) =>
-    "\n> " + walkNodes(blockquote, cb).join("").split("\n").join("\n> "),
-  li: (li, cb) =>
-    walkNodes(li, cb)
-      .filter((s) => s.trim())
-      .join("\n"),
-  ol: (ol, cb) =>
-    `\n  1. ${walkNodes(ol, {
-      ...cb,
-      [Node.TEXT_NODE]: nonEmptyText,
-    })
-      .filter(Boolean)
-      .map((l) => `  1. ${l}`)
-      .join("\n")}\n`,
-  ul: (ul, cb) =>
-    "\n" +
-    walkNodes(ul, {
-      ...cb,
-      [Node.TEXT_NODE]: nonEmptyText,
-    })
-      .filter(Boolean)
-      .map((l) => `  - ${l}`)
-      .join("\n") +
-    "\n",
-  br: () => "\n\n",
-  hr: () => `\n\n${"-".repeat(80)}\n\n`,
-  img: (img) => `\n![${img.alt}](${img.src})\n`,
+
+  br: (_: HTMLBRElement, state: State) => newline(state) + newline(state),
+
+  picture: preserve,
+  img: (img) => ` ![${img.alt}](${img.src}) `,
+
   strong: bold,
   b: bold,
+
   em: italic,
   i: italic,
+
   script: ignore,
   style: ignore,
-  p,
-  div: p,
-  htmlFallback: (el: HTMLElement, cb) => walkNodes(el, cb).join(""),
+
+  htmlFallback: fallback,
   [Node.TEXT_NODE]: (node) => textOf(node),
   nodeFallback: ignore,
-});
+};
 
 export const toMd = (
-  html: string,
+  html: HTMLElement | string,
   callbacks: Callbacks<string> | null = null,
   logger: Logger | null = null
 ): string => {
-  callbacks = { ...defaultCallbacks(), ...callbacks };
-  const templateEl = stringToHtmlElement(html);
-  if (logger) logger.child("to_md").log("templateEl", templateEl);
-  return walkNodes(templateEl, callbacks)
+  const log = logger?.child("to_md");
+  callbacks = { ...defaultCallbacks, ...callbacks };
+  const state = { indent: "", prefix: "- " };
+  const rootEl =
+    typeof html === "string" ? stringToHtmlElement(html) : html.parentElement;
+  log?.info("templateEl", rootEl);
+  return walkNodes(rootEl, state, callbacks, log)
     .join("")
     .trim()
     .replace(/\n{2,}/g, "\n\n");

@@ -27,7 +27,7 @@ export class Logger {
   debug(...args: any[]) {
     console.debug(this.path.join("::"), ...args);
   }
-  log(...args: any[]) {
+  info(...args: any[]) {
     console.log(this.path.join("::"), ...args);
   }
 }
