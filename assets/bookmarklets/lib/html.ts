@@ -94,14 +94,17 @@ export const selectElement = async (
         reject(new Error("Search cancelled"));
       }
     };
+    const chores: Array<() => void> = [];
     const onMouseOver = (event: MouseEvent) => {
       const element = handle(event);
       const prevBorder = element.style.border;
       element.style.border = "2px solid red";
-      const onMouseOut = () => {
+      const cleanUp = () => {
         element.style.border = prevBorder;
         element.removeEventListener("mouseout", onMouseOut);
       };
+      chores.push(cleanUp);
+      const onMouseOut = () => chores.pop()?.();
       element.addEventListener("mouseout", onMouseOut);
     };
     const onClick = (event: MouseEvent) => {
@@ -114,6 +117,7 @@ export const selectElement = async (
       window.removeEventListener("click", onClick);
       window.removeEventListener("keydown", cancelSearch);
       document.removeEventListener("mouseover", onMouseOver);
+      while (chores.length) chores.pop()?.();
     };
     document.addEventListener("mouseover", onMouseOver);
     window.addEventListener("click", onClick);
