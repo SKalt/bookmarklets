@@ -47,7 +47,8 @@ type JobPosting = {
 const toNumber = (value: number | string): number => {
   switch (typeof value) {
     case "string":
-      return parseFloat(value.replaceAll(/[^0-9]/g, ""));
+      const n = parseFloat(value.replaceAll(/[^0-9]/g, ""));
+      return /k$/i.test(value) ? n * 1000 : n;
     case "number":
     case "bigint":
       return value;
@@ -143,16 +144,21 @@ const getLdJson = (logger: Logger): Array<string | null> => {
       };
       const md = toMd(description || "", defaultCallbacks, logger);
       if (!frontMatter.min_value && !frontMatter.max_value) {
-        let salary =
-          /(\$?[0-9]{2,3},?\d{3}\.?\d{0,2})\s*[-]\s*(\$?[0-9]{3},?[0-9]{3}\.?\d{0,2})/g.exec(
-            md
-          );
+        const numberPattern = `\\$?\\d{2,3},?\\d{0,3}\.?\\d{0,2}[kK]?`;
+        let salary = new RegExp(
+          `(?<min>${numberPattern})\\s*[-]\\s*(?<max>${numberPattern})`,
+          "g"
+        ).exec(md);
+
         if (salary) {
           console.log(salary);
-          baseSalary = {
-            minValue: toNumber(salary[1]),
-            maxValue: toNumber(salary[2]),
-          };
+          Object.assign(
+            frontMatter,
+            renderSalary({
+              minValue: toNumber(salary[1]),
+              maxValue: toNumber(salary[2]),
+            })
+          );
         }
       }
 
@@ -172,6 +178,8 @@ const getLdJson = (logger: Logger): Array<string | null> => {
     result = `---\nlink: ${location.href}\n---\n\n` + toMd(el?.outerHTML);
   }
 
+  // post-processing: many ld+json scripts contain '\\n' instead of '\n'
+  result = result.replaceAll("\\n", "\n").replaceAll(/\n{3,}/g, "\n\n");
   console.log(result);
   await copyToClipboard(result);
   let datePosted = (/^date_posted: (.*)$/m.exec(result) ?? [null, null])[1];

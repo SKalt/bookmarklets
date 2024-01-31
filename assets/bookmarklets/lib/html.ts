@@ -18,15 +18,15 @@ export type State = {
 export type Callback<El extends HTMLElement = HTMLElement, Result = string> = (
   el: El,
   state: State,
-  cb: Callbacks<Result>
+  cb: Callbacks<Result>,
+  logger: Logger | null
 ) => Result;
 
 export type HtmlCallbacks<Result> = {
-  [K in keyof HTMLElementTagNameMap]?: (
-    el: HTMLElementTagNameMap[K],
-    state: State,
-    callbacks: Callbacks<Result>
-  ) => Result;
+  [K in keyof HTMLElementTagNameMap]?: Callback<
+    HTMLElementTagNameMap[K],
+    Result
+  >;
 } & {
   htmlFallback: Callback<HTMLElement, Result>;
 };
@@ -47,7 +47,7 @@ export const walkNodes = <Result>(
   logger?: Logger | null
 ): Result[] => {
   const log: Logger | null = globalThis.DEBUG
-    ? logger?.child("walkNodes")
+    ? logger?.child("walkNodes(" + element.tagName.toLowerCase() + ")")
     : null;
   return [...element.childNodes].map((node) => {
     if (node.nodeType === Node.ELEMENT_NODE) {
@@ -55,7 +55,7 @@ export const walkNodes = <Result>(
       log?.debug("element", element);
       const callback: Callback<HTMLElement, Result> =
         callbacks[element.tagName.toLowerCase()] || callbacks.htmlFallback;
-      const result = callback(element, state, callbacks);
+      const result = callback(element, state, callbacks, logger);
       log?.debug("result", result);
       return result;
     } else {
@@ -71,7 +71,7 @@ export const stringToHtmlElement = (html: string): HTMLDivElement => {
   return div;
 };
 export const textOf = (node: Node): string =>
-  node.textContent?.trim().replaceAll(/\r?\n/g, "\n") || "";
+  node.textContent?.replaceAll(/\r?\n/g, "\n") || "";
 
 /**
  * Select the clicked HTML element

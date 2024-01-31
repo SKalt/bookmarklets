@@ -12,47 +12,59 @@ import { Logger } from "./lib";
 
 const h =
   (level: number): Callback<HTMLElement, string> =>
-  (el, state, cbs) =>
+  (el, state, cbs, logger) =>
     newline(state) +
     newline(state) +
     "#".repeat(level) +
     " " +
-    walkNodes(el, state, cbs).join("");
+    walkNodes(el, state, cbs, logger).join("");
 const ignore = () => "";
 
-const bold: Callback<HTMLElement, string> = (el, state, cbs): string =>
-  `**${walkNodes(el, state, cbs)}**`;
-const italic: Callback<HTMLElement, string> = (el, state, cbs): string =>
-  `_${walkNodes(el, state, cbs)}_`;
+const bold: Callback<HTMLElement, string> = (el, state, cbs, logger): string =>
+  `**${walkNodes(el, state, cbs, logger)}**`;
+const italic: Callback<HTMLElement, string> = (
+  el,
+  state,
+  cbs,
+  logger
+): string => `_${walkNodes(el, state, cbs, logger)}_`;
 
-const blockElement: Callback<HTMLElement, string> = (el, state, cbs): string =>
-  newline(state) +
-  newline(state) + // TODO: differentiate single/double newlines?
-  walkNodes(el, state, cbs)
-    .join("")
-    .replaceAll(/^\s*[·|•|•|‣|◦|◦]\s*/g, "- ");
+const blockElement: Callback<HTMLElement, string> = (
+  el,
+  state,
+  cbs,
+  logger
+): string => {
+  const children = walkNodes(el, state, cbs, logger);
+  logger?.debug("children", children);
+  return (
+    newline(state) +
+    newline(state) + // TODO: differentiate single/double newlines?
+    children.join("").replaceAll(/^\s*[·|•|•|‣|◦|◦]\s*/g, "- ")
+  );
+};
 
 const pre = (pre: HTMLPreElement): string => "\n```" + textOf(pre) + "```\n";
 
-const nonEmptyText = (node: Node): string => {
-  const text = textOf(node);
-  return text.trim() ? text : "";
-};
+// const nonEmptyText = (node: Node): string => {
+//   const text = textOf(node);
+//   return text.trim() ? text : "";
+// };
 
 // FIXME: handle indentation of nested lists
 
-const fallback: Callback<HTMLElement, string> = (el, state, cbs) =>
-  walkNodes(el, state, cbs).join("");
-const preserve: Callback<HTMLElement, string> = (el, state, cbs) =>
+const fallback: Callback<HTMLElement, string> = (el, state, cbs, logger) =>
+  walkNodes(el, state, cbs, logger).join("");
+const preserve: Callback<HTMLElement, string> = (el, state, cbs, logger) =>
   el.outerHTML; // TODO: handle indentation?;
 // const _blockElements = ["DL", "DD", "DT", "FIELDSET"];
 
 const list =
   (prefix: string): Callback<HTMLUListElement | HTMLOListElement, string> =>
-  (list, state, cbs) => {
+  (list, state, cbs, logger) => {
     return (
       newline(state) +
-      walkNodes(list, { indent: state.indent + "  ", prefix }, cbs)
+      walkNodes(list, { indent: state.indent + "  ", prefix }, cbs, logger)
         .filter((childText) => Boolean(childText.trim()))
         .join("") +
       newline(state)
@@ -110,20 +122,31 @@ const blockElements = {
   blockquote: (
     el: HTMLQuoteElement,
     state: State,
-    cbs: Callbacks<string>
+    cbs: Callbacks<string>,
+    logger?: Logger
   ): string => {
     return (
       newline(state) +
       newline(state) +
-      walkNodes(el, { ...state, indent: state.indent + "> " }, cbs).join("") +
+      walkNodes(
+        el,
+        { ...state, indent: state.indent + "> " },
+        cbs,
+        logger
+      ).join("") +
       newline(state)
     );
   },
 
   /** should be overridden by indentBlocks  */
-  li: (li: HTMLLIElement, state: State, cbs: Callbacks<string>) => {
+  li: (
+    li: HTMLLIElement,
+    state: State,
+    cbs: Callbacks<string>,
+    logger?: Logger
+  ) => {
     const innerState = { ...state, indent: state.indent + "  " };
-    let inner = fallback(li, innerState, cbs);
+    let inner = fallback(li, innerState, cbs, logger);
     {
       // remove all leading indented lines
       const innerLine = newline(innerState);
@@ -138,14 +161,15 @@ const blockElements = {
 
 export const defaultCallbacks: Callbacks<string> = {
   ...(blockElements as Partial<Callbacks<string>>),
-  a: (a, state) =>
-    `[${walkNodes(a, state, defaultCallbacks).join("")}](${a.href})`,
+  a: (a, state, _, logger) =>
+    `[${walkNodes(a, state, defaultCallbacks, logger).join("")}](${a.href})`,
   code: (code) => "`" + textOf(code) + "`",
 
-  br: (_: HTMLBRElement, state: State) => newline(state) + newline(state),
+  br: (_: HTMLBRElement, state: State, _callbacks, logger) =>
+    newline(state) + newline(state),
 
   picture: preserve,
-  img: (img) => ` ![${img.alt}](${img.src}) `,
+  img: (img, _state, _callbacks, logger) => ` ![${img.alt}](${img.src}) `,
 
   strong: bold,
   b: bold,
