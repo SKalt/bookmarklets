@@ -58,6 +58,7 @@ const list =
     return (
       newline(state) +
       walkNodes(list, { indent: state.indent + "  ", prefix }, cbs, logger)
+        .map((l) => l.trimEnd())
         .filter((childText) => Boolean(childText.trim()))
         .join("") +
       newline(state)
