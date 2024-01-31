@@ -46,13 +46,6 @@ const blockElement: Callback<HTMLElement, string> = (
 
 const pre = (pre: HTMLPreElement): string => "\n```" + textOf(pre) + "```\n";
 
-// const nonEmptyText = (node: Node): string => {
-//   const text = textOf(node);
-//   return text.trim() ? text : "";
-// };
-
-// FIXME: handle indentation of nested lists
-
 const fallback: Callback<HTMLElement, string> = (el, state, cbs, logger) =>
   walkNodes(el, state, cbs, logger).join("");
 const preserve: Callback<HTMLElement, string> = (el, state, cbs, logger) =>
