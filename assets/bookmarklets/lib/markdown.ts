@@ -21,7 +21,7 @@ const h =
 const ignore = () => "";
 
 const bold: Callback<HTMLElement, string> = (el, state, cbs, logger): string =>
-  `**${walkNodes(el, state, cbs, logger)}**`;
+  `**${walkNodes(el, state, cbs, logger).join("")}**`;
 const italic: Callback<HTMLElement, string> = (
   el,
   state,

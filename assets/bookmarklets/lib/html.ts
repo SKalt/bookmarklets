@@ -71,7 +71,7 @@ export const stringToHtmlElement = (html: string): HTMLDivElement => {
   return div;
 };
 export const textOf = (node: Node): string =>
-  node.textContent?.replaceAll(/\r?\n/g, "\n") || "";
+  node.textContent?.replaceAll(/\r?\n/g, "\n").replaceAll("*", "\\*") || "";
 
 /**
  * Select the clicked HTML element
