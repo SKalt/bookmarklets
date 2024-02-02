@@ -9,11 +9,23 @@ export type NodeCallbacks<Result> = Partial<{
   [Node.TEXT_NODE]: (node: Node) => Result;
 }> & { nodeFallback: (node: Node) => Result };
 
+export const enum WrapKinds {
+  Italic = 1 << 1,
+  Bold = 1 << 2,
+  Underline = 1 << 3,
+}
+export type Wrap = number & { readonly __wrap: unique symbol };
+const bitFlag = (f: Wrap) => (n: Wrap) => (n & f) === f;
+export const isItalic = bitFlag(WrapKinds.Italic as Wrap);
+export const isBold = bitFlag(WrapKinds.Bold as Wrap);
+export const isUnderline = bitFlag(WrapKinds.Underline as Wrap);
+
 export type State = {
   /** for all block elements */
   indent: string;
   /** for `li`s only */
   prefix: string;
+  wrap?: Wrap;
 };
 export type Callback<El extends HTMLElement = HTMLElement, Result = string> = (
   el: El,
@@ -42,7 +54,7 @@ export const newline = (state: State) => "\n" + state.indent;
  */
 export const walkNodes = <Result>(
   element: HTMLElement,
-  state: State = { indent: "", prefix: "- " },
+  state: State = { indent: "", prefix: "- ", wrap: 0 as Wrap },
   callbacks: Callbacks<Result>,
   logger?: Logger | null
 ): Result[] => {

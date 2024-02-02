@@ -7,6 +7,10 @@ import {
   textOf,
   walkNodes,
   newline,
+  isItalic,
+  WrapKinds,
+  Wrap,
+  isBold,
 } from "./html";
 import { Logger } from "./lib";
 
@@ -20,14 +24,43 @@ const h =
     walkNodes(el, state, cbs, logger).join("");
 const ignore = () => "";
 
-const bold: Callback<HTMLElement, string> = (el, state, cbs, logger): string =>
-  `**${walkNodes(el, state, cbs, logger).join("")}**`;
+const shrinkWrap = (delim: string) => (s: string) =>
+  s.replace(
+    /^(\s*)([^\s].*[^\s])(\s*)$/,
+    (_, left, main, right) => left + delim + main + delim + right
+  );
+const bold: Callback<HTMLElement, string> = (
+  el,
+  state,
+  cbs,
+  logger
+): string => {
+  const wrap = (state.wrap ?? 0) as Wrap;
+  const inner = walkNodes(
+    el,
+    { ...state, wrap: (wrap | WrapKinds.Bold) as Wrap },
+    cbs,
+    logger
+  ).join("");
+  const result = isBold(wrap) ? inner : shrinkWrap("**")(inner);
+  return result;
+};
 const italic: Callback<HTMLElement, string> = (
   el,
   state,
   cbs,
   logger
-): string => `_${walkNodes(el, state, cbs, logger)}_`;
+): string => {
+  let wrap = state.wrap ?? (0 as Wrap);
+  const inner = walkNodes(
+    el,
+    { ...state, wrap: (wrap | WrapKinds.Italic) as Wrap },
+    cbs,
+    logger
+  ).join("");
+  const result = isItalic(wrap) ? inner : shrinkWrap("_")(inner);
+  return result;
+};
 
 const blockElement: Callback<HTMLElement, string> = (
   el,
@@ -159,11 +192,11 @@ export const defaultCallbacks: Callbacks<string> = {
     `[${walkNodes(a, state, defaultCallbacks, logger).join("")}](${a.href})`,
   code: (code) => "`" + textOf(code) + "`",
 
-  br: (_: HTMLBRElement, state: State, _callbacks, logger) =>
+  br: (_: HTMLBRElement, state: State, _callbacks, _logger) =>
     newline(state) + newline(state),
 
   picture: preserve,
-  img: (img, _state, _callbacks, logger) => ` ![${img.alt}](${img.src}) `,
+  img: (img, _state, _callbacks, _logger) => ` ![${img.alt}](${img.src}) `,
 
   strong: bold,
   b: bold,
