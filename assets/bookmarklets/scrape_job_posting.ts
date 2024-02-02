@@ -115,7 +115,9 @@ const salaryPattern = new RegExp(
   `(?<min>${salaryNumberPattern})\\s*[-]\\s*(?<max>${salaryNumberPattern})`,
   "g"
 );
-const extractSalary = (md: string) => {
+const extractSalary = (
+  md: string
+): { min_value: number; max_value: number } | null => {
   let salary = salaryPattern.exec(md);
   return salary
     ? renderSalary({
@@ -159,22 +161,7 @@ const getLdJson = (logger: Logger): Array<string | null> => {
       };
       const md = toMd(description || "", defaultCallbacks, logger);
       if (!frontMatter.min_value && !frontMatter.max_value) {
-        const numberPattern = `\\$?\\d{2,3},?\\d{0,3}\.?\\d{0,2}[kK]?`;
-        let salary = new RegExp(
-          `(?<min>${numberPattern})\\s*[-]\\s*(?<max>${numberPattern})`,
-          "g"
-        ).exec(md);
-
-        if (salary) {
-          console.log(salary);
-          Object.assign(
-            frontMatter,
-            renderSalary({
-              minValue: toNumber(salary[1]),
-              maxValue: toNumber(salary[2]),
-            })
-          );
-        }
+        Object.assign(frontMatter, extractSalary(md) ?? {});
       }
 
       return renderFrontMatter(frontMatter) + "\n" + md;
@@ -191,17 +178,15 @@ const getLdJson = (logger: Logger): Array<string | null> => {
     logger.err("no valid job postings found");
     let el = await selectElement(logger); // errors if selection aborted
     const md = toMd(el?.outerHTML);
-    const salary = extractSalary(md);
+    const salary = extractSalary(md) ?? {};
     result =
-      [
-        "---",
-        `link: ${location.href}`,
-        `min_salary: ${salary?.min_value || ""}`,
-        `max_salary: ${salary?.max_value || ""}`,
-        "---",
-      ].join("\n") +
-      `\n\n` +
-      md;
+      renderFrontMatter({
+        company: "FIXME",
+        title: "FIXME",
+        link: location.href,
+        date_posted: null,
+        ...salary,
+      }) + md;
   }
 
   // post-processing: many ld+json scripts contain '\\n' instead of '\n'
