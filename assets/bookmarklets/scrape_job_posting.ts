@@ -190,7 +190,7 @@ const getLdJson = (logger: Logger): Array<string | null> => {
   }
 
   // post-processing: many ld+json scripts contain '\\n' instead of '\n'
-  result = result.replaceAll("\\n", "\n").replaceAll(/\n{3,}/g, "\n\n");
+  result = result.replaceAll("\\n", "\n").replaceAll(/(\n[ \t]*){2,}/g, "\n\n");
   console.log(result);
   await copyToClipboard(result);
   let datePosted = (/^date_posted: (.*)$/m.exec(result) ?? [null, null])[1];
