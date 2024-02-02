@@ -110,6 +110,21 @@ const renderFrontMatter = (frontMatter: FrontMatter): string => {
   return result + "---\n\n";
 };
 
+const salaryNumberPattern = `\\$?\\d{2,3},?\\d{0,3}\.?\\d{0,2}[kK]?`;
+const salaryPattern = new RegExp(
+  `(?<min>${salaryNumberPattern})\\s*[-]\\s*(?<max>${salaryNumberPattern})`,
+  "g"
+);
+const extractSalary = (md: string) => {
+  let salary = salaryPattern.exec(md);
+  return salary
+    ? renderSalary({
+        minValue: toNumber(salary[1]),
+        maxValue: toNumber(salary[2]),
+      })
+    : null;
+};
+
 const getLdJson = (logger: Logger): Array<string | null> => {
   return [...document.querySelectorAll("script[type='application/ld+json']")]
     .map((el: HTMLScriptElement) => parseJson(el))
@@ -175,7 +190,18 @@ const getLdJson = (logger: Logger): Array<string | null> => {
   if (!result) {
     logger.err("no valid job postings found");
     let el = await selectElement(logger); // errors if selection aborted
-    result = `---\nlink: ${location.href}\n---\n\n` + toMd(el?.outerHTML);
+    const md = toMd(el?.outerHTML);
+    const salary = extractSalary(md);
+    result =
+      [
+        "---",
+        `link: ${location.href}`,
+        `min_salary: ${salary?.min_value || ""}`,
+        `max_salary: ${salary?.max_value || ""}`,
+        "---",
+      ].join("\n") +
+      `\n\n` +
+      md;
   }
 
   // post-processing: many ld+json scripts contain '\\n' instead of '\n'
