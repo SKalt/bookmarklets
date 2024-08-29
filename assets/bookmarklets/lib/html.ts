@@ -53,14 +53,16 @@ export const newline = (state: State) => "\n" + state.indent;
  * @returns One result per **child** node. Note the root node is not included in the result!
  */
 export const walkNodes = <Result>(
-  element: HTMLElement,
+  element: HTMLElement | DocumentFragment,
   state: State = { indent: "", prefix: "- ", wrap: 0 as Wrap },
   callbacks: Callbacks<Result>,
   logger?: Logger | null
 ): Result[] => {
+  const ctx = "tagName" in element ? element.tagName : "#document";
   const log: Logger | null = globalThis.DEBUG
-    ? logger?.child("walkNodes(" + element.tagName.toLowerCase() + ")")
+    ? logger?.child(`walkNodes(${ctx})`)
     : null;
+  log?.debug("walking child nodes of", element);
   return [...element.childNodes].map((node) => {
     if (node.nodeType === Node.ELEMENT_NODE) {
       const element = node as HTMLElement;
@@ -76,14 +78,31 @@ export const walkNodes = <Result>(
     }
   });
 };
-export const stringToHtmlElement = (html: string): HTMLDivElement => {
+
+export const cloneHTML = (html: string): DocumentFragment => {
   const tpl = document.createElement("template");
-  tpl.innerHTML = `<div>${html}</div>`;
-  const div = tpl.content.querySelector("div");
-  return div;
+  tpl.innerHTML = html;
+  return tpl.content;
+};
+export const cloneElement = (html: HTMLElement): DocumentFragment =>
+  cloneHTML(html.outerHTML);
+const unescape = (charData: string): string => {
+  return charData
+    .replaceAll("&nbsp;", " ")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&");
 };
 export const textOf = (node: Node): string =>
-  node.textContent?.replaceAll(/\r?\n/g, "\n").replaceAll("*", "\\*") || "";
+  unescape(node.textContent.replaceAll(/\s+/g, " "));
+
+const use$0 = (): HTMLElement | null => {
+  try {
+    return eval("$0") as HTMLElement;
+  } catch (e) {
+    return null;
+  }
+};
 
 /**
  * Select the clicked HTML element
@@ -94,6 +113,9 @@ export const selectElement = async (
 ): Promise<HTMLElement | null> =>
   new Promise((resolve, reject) => {
     const log = logger.child("selectElement");
+    const _$0 = use$0();
+    logger.debug({ $0: _$0 });
+    if (_$0 !== null) return resolve(_$0);
     const handle = (event: MouseEvent) => {
       event.stopPropagation();
       event.preventDefault();

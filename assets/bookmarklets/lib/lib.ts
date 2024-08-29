@@ -31,3 +31,23 @@ export class Logger {
     console.log(this.path.join("::"), ...args);
   }
 }
+
+export const escapeTsvValue = (val: string): string => {
+  if (!val) return "";
+  if (
+    val.includes("\t") ||
+    val.includes("\n") ||
+    val.includes("\r") ||
+    val.includes('"')
+  ) {
+    return (
+      '"' +
+      val
+        .replaceAll("\t", "\\t")
+        .replaceAll("\n", "\\n")
+        .replaceAll("\r", "\\r")
+        .replaceAll(/"(?!")/g, '""') +
+      '"'
+    );
+  } else return val; // no need to escape
+};

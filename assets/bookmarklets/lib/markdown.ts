@@ -3,7 +3,6 @@ import {
   Callbacks,
   HtmlCallbacks,
   State,
-  stringToHtmlElement,
   textOf,
   walkNodes,
   newline,
@@ -11,6 +10,8 @@ import {
   WrapKinds,
   Wrap,
   isBold,
+  cloneElement,
+  cloneHTML,
 } from "./html";
 import { Logger } from "./lib";
 
@@ -77,7 +78,8 @@ const blockElement: Callback<HTMLElement, string> = (
   );
 };
 
-const pre = (pre: HTMLPreElement): string => "\n```" + textOf(pre) + "```\n";
+const pre = (pre: HTMLPreElement): string =>
+  "\n```\n" + pre.textContent + "\n```\n";
 
 const fallback: Callback<HTMLElement, string> = (el, state, cbs, logger) =>
   walkNodes(el, state, cbs, logger).join("");
@@ -190,7 +192,7 @@ export const defaultCallbacks: Callbacks<string> = {
   ...(blockElements as Partial<Callbacks<string>>),
   a: (a, state, _, logger) =>
     `[${walkNodes(a, state, defaultCallbacks, logger).join("")}](${a.href})`,
-  code: (code) => "`" + textOf(code) + "`",
+  code: (code) => "`" + textOf(code) + "`", // FIXME:
 
   br: (_: HTMLBRElement, state: State, _callbacks, _logger) =>
     newline(state) + newline(state),
@@ -220,10 +222,9 @@ export const toMd = (
   const log = logger?.child("to_md");
   callbacks = { ...defaultCallbacks, ...callbacks };
   const state = { indent: "", prefix: "- " };
-  const rootEl =
-    typeof html === "string" ? stringToHtmlElement(html) : html.parentElement;
-  log?.info("templateEl", rootEl);
-  return walkNodes(rootEl, state, callbacks, log)
+  const doc = typeof html === "string" ? cloneHTML(html) : cloneElement(html);
+  log?.info("html", doc);
+  return walkNodes(doc, state, callbacks, log)
     .join("")
     .trim()
     .replace(/\n{2,}/g, "\n\n");

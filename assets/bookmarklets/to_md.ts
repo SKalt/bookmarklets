@@ -9,7 +9,8 @@ const logger = new Logger("to_md");
     logger.err("No element selected");
     return;
   }
-  const md = toMd(element.innerHTML, defaultCallbacks, logger);
+  logger.debug("selected", element);
+  const md = toMd(element, defaultCallbacks, logger);
   console.log(md);
   try {
     await copyToClipboard(md);
