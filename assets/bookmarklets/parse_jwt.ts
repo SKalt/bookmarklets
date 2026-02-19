@@ -11,7 +11,8 @@ let [header, payload] = [headerStr, payloadStr].map((str) => JSON.parse(str));
 const prettyPrint = (json: any) => JSON.stringify(json, null, 2);
 
 console.log({ header, payload, encodedSignature });
-
+const d = (k: string) => Number.isFinite(payload[v]) ? new Date(payload[v] * 1000) : null
+const iat = Number.isfinite(payload["iat"]) ? new Date(payload["iat
 let popup = window.open("", "_blank");
 popup.document.body.innerHTML = `<style>
 pre{position:relative;width:fit-content; padding:1em;padding-right:2em;}
@@ -19,7 +20,7 @@ pre{position:relative;width:fit-content; padding:1em;padding-right:2em;}
   header
 )}</code></pre><h4>payload</h4><pre><code>${prettyPrint(
   payload
-)}</code></pre><h4>Encoded signature</h4><pre><code>${encodedSignature}</code></pre>`;
+)}</code></pre><p>iat: ${d("iat")}</p><p>${d("exp")</p><h4>Encoded signature</h4><pre><code>${encodedSignature}</code></pre>`;
 
 popup.document.body.querySelectorAll("pre").forEach((pre) => {
   pre.contentEditable = "true";
